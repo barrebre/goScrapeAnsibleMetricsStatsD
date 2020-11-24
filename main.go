@@ -133,10 +133,10 @@ func convertMetricsToStatsD(rawMetrics string) {
 				newMetric := strings.ReplaceAll(cleanMetric, "}", "")
 
 				metricValue := strings.Split(newMetric, " ")
-				value, err := strconv.Atoi(metricValue[1])
+				value, err := strconv.ParseFloat(metricValue[1], 32)
 				if err != nil {
-					fmt.Println(fmt.Sprintf("Couldn't convert metric to int: %v\n", metricValue))
-					Logger.Printf("Couldn't convert metric to int: %v\n", metricValue)
+					fmt.Println(fmt.Sprintf("Couldn't convert metric to float: %v\n", metricValue))
+					Logger.Printf("Couldn't convert metric to float: %v\n", metricValue)
 				}
 
 				fmt.Printf("values are %v, %v\n", metricValue[0], int64(value))
