@@ -135,9 +135,11 @@ func convertMetricsToStatsD(rawMetrics string) {
 				metricValue := strings.Split(newMetric, " ")
 				value, err := strconv.Atoi(metricValue[1])
 				if err != nil {
+					fmt.Println(fmt.Sprintf("Couldn't convert metric to int: %v\n", metricValue))
 					Logger.Printf("Couldn't convert metric to int: %v\n", metricValue)
 				}
 
+				fmt.Printf("values are %v, %v\n", metricValue[0], int64(value))
 				statsClient.Gauge(metricValue[0], int64(value))
 
 				Logger.Println(fmt.Sprintf("Printed metric: %v", metricValue))
@@ -147,7 +149,7 @@ func convertMetricsToStatsD(rawMetrics string) {
 	}
 
 	// Make sure to close the client and send the messages
-	statsClient.Close()
+	// statsClient.Close()
 }
 
 func makeStatsDClient() *statsd.StatsdBuffer {
