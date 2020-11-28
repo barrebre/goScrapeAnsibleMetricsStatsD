@@ -22,12 +22,7 @@ type Config struct {
 	ServerURL string
 }
 
-// Logger for the app
-var Logger *log.Logger
-
 func main() {
-	setupLogger()
-
 	config, err := readCommandLineArgs()
 	if err != nil {
 		fmt.Printf("The config was not complete: %v.\nUsage: ./goScrapeAnsibleMetrics --api-token={} --format={} --server-url={}.\n", err)
@@ -36,11 +31,11 @@ func main() {
 
 	rawMetrics, err := getMetrics(config)
 	if err != nil {
-		Logger.Println(fmt.Sprintf("There was an error scraping Ansible. Error: %v", err.Error()))
+		fmt.Println(fmt.Sprintf("There was an error scraping Ansible. Error: %v", err.Error()))
 		os.Exit(0)
 	}
 
-	Logger.Println(fmt.Sprintf("Received metrics:\n%v", rawMetrics))
+	fmt.Printf("Received metrics:\n%v\n", rawMetrics)
 
 	convertMetricsToStatsD(rawMetrics)
 }
@@ -52,12 +47,12 @@ func readCommandLineArgs() (Config, error) {
 	flag.Parse()
 
 	if *apiToken == "" {
-		Logger.Println("There was no API token provided. An Ansible Tower API key is required")
+		fmt.Println("There was no API token provided. An Ansible Tower API key is required")
 		return Config{}, fmt.Errorf("There was no API token provided. An Ansible Tower API key is required")
 	}
 
 	if *serverURL == "localhost" {
-		Logger.Println("There was no Server URL provided. Defaulting to localhost")
+		fmt.Println("There was no Server URL provided. Defaulting to localhost")
 	}
 
 	config := Config{
@@ -66,17 +61,6 @@ func readCommandLineArgs() (Config, error) {
 	}
 
 	return config, nil
-}
-
-func setupLogger() {
-	// open file for debugging
-	logFile, err := os.OpenFile("/tmp/goScrapeAnsibleMetricsStatsD.log",
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0777)
-	if err != nil {
-		log.Printf("error opening file: %v\n", err)
-	}
-	defer logFile.Close()
-	Logger = log.New(logFile, "", log.LstdFlags)
 }
 
 func getMetrics(config Config) (string, error) {
@@ -135,24 +119,20 @@ func convertMetricsToStatsD(rawMetrics string) {
 				metricValue := strings.Split(newMetric, " ")
 				value, err := strconv.ParseFloat(metricValue[1], 32)
 				if err != nil {
-					fmt.Println(fmt.Sprintf("Couldn't convert metric to float: %v\n", metricValue))
-					Logger.Printf("Couldn't convert metric to float: %v\n", metricValue)
+					fmt.Printf("Couldn't convert metric to float: %v\n", metricValue)
 				}
 
-				fmt.Printf("values are %v, %v\n", metricValue[0], int64(value))
+				// fmt.Printf("values are %v, %v\n", metricValue[0], int64(value))
 				statsClient.Gauge(metricValue[0], int64(value))
 
-				Logger.Println(fmt.Sprintf("Printed metric: %v", metricValue))
-				fmt.Println(fmt.Sprintf("Sent StatsD metric: %v", metricValue))
+				fmt.Println(fmt.Sprintf("Printed metric: %v", metricValue))
+				// fmt.Println(fmt.Sprintf("Sent StatsD metric: %v", metricValue))
 			}
 		}
 	}
-
-	// Make sure to close the client and send the messages
-	// statsClient.Close()
 }
 
-func makeStatsDClient() *statsd.StatsdBuffer {
+func makeStatsDClient() statsd.StatsdBuffer {
 	prefix := "statsd."
 	statsdclient := statsd.NewStatsdClient("localhost:18125", prefix)
 	err := statsdclient.CreateSocket()
@@ -164,5 +144,5 @@ func makeStatsDClient() *statsd.StatsdBuffer {
 	stats := statsd.NewStatsdBuffer(interval, statsdclient)
 	defer stats.Close()
 
-	return stats
+	return *stats
 }
