@@ -122,10 +122,12 @@ func convertMetricsToStatsD(rawMetrics string) {
 					fmt.Printf("Couldn't convert metric to float: %v\n", metricValue)
 				}
 
-				// fmt.Printf("values are %v, %v\n", metricValue[0], int64(value))
-				statsClient.Gauge(metricValue[0], int64(value))
+				metricName := fmt.Sprintf("statsd.%v", metricValue[0])
 
-				fmt.Println(fmt.Sprintf("Printed metric: %v", metricValue))
+				// fmt.Printf("values are %v, %v\n", metricValue[0], int64(value))
+				statsClient.Gauge(metricName, int64(value))
+
+				fmt.Println(fmt.Sprintf("Printed metric: %v - %v", metricName, value))
 				// fmt.Println(fmt.Sprintf("Sent StatsD metric: %v", metricValue))
 			}
 		}
