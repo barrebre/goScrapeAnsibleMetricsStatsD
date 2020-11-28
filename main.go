@@ -117,18 +117,15 @@ func convertMetricsToStatsD(rawMetrics string) {
 				newMetric := strings.ReplaceAll(cleanMetric, "}", "")
 
 				metricValue := strings.Split(newMetric, " ")
+				metricName := fmt.Sprintf("statsd.%v", metricValue[0])
+
 				value, err := strconv.ParseFloat(metricValue[1], 32)
 				if err != nil {
 					fmt.Printf("Couldn't convert metric to float: %v\n", metricValue)
 				}
 
-				metricName := fmt.Sprintf("statsd.%v", metricValue[0])
-
-				// fmt.Printf("values are %v, %v\n", metricValue[0], int64(value))
 				statsClient.Gauge(metricName, int64(value))
-
 				fmt.Println(fmt.Sprintf("Printed metric: %v - %v", metricName, value))
-				// fmt.Println(fmt.Sprintf("Sent StatsD metric: %v", metricValue))
 			}
 		}
 	}
