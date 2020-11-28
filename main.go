@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -117,15 +116,13 @@ func convertMetricsToStatsD(rawMetrics string) {
 				newMetric := strings.ReplaceAll(cleanMetric, "}", "")
 
 				metricValue := strings.Split(newMetric, " ")
-				metricName := fmt.Sprintf("statsd.%v", metricValue[0])
-
 				value, err := strconv.ParseFloat(metricValue[1], 32)
 				if err != nil {
 					fmt.Printf("Couldn't convert metric to float: %v\n", metricValue)
 				}
 
-				statsClient.Gauge(metricName, int64(value))
-				fmt.Println(fmt.Sprintf("Printed metric: %v - %v", metricName, value))
+				statsClient.Gauge(metricValue[0], int64(value))
+				fmt.Println(fmt.Sprintf("Printed metric: %v - %v", metricValue[0], int64(value)))
 			}
 		}
 	}
@@ -136,9 +133,9 @@ func makeStatsDClient() statsd.StatsdBuffer {
 	statsdclient := statsd.NewStatsdClient("localhost:18125", prefix)
 	err := statsdclient.CreateSocket()
 	if nil != err {
-		log.Println(err)
-		os.Exit(1)
+		panic(err)
 	}
+
 	interval := time.Second * 2 // aggregate stats and flush every 2 seconds
 	stats := statsd.NewStatsdBuffer(interval, statsdclient)
 	defer stats.Close()
