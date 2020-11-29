@@ -145,12 +145,11 @@ func convertMetricsToStatsD(rawMetrics string) {
 					}
 					dimString := dimensionString[0 : len(dimensionString)-1]
 
-					finalMetric = fmt.Sprintf("%v:%v|g|%v", metricName, int(metricValue), dimString)
-					fmt.Println("Final metric is: ", finalMetric)
+					finalMetric = fmt.Sprintf("statsd.%v:%v|g|%v", metricName, int(metricValue), dimString)
 				} else {
-					finalMetric = fmt.Sprintf("%v:%v|g", metricName, int(metricValue))
-					fmt.Println("Final metric is: ", finalMetric)
+					finalMetric = fmt.Sprintf("statsd.%v:%v|g", metricName, int(metricValue))
 				}
+				fmt.Println("Final metric is: ", finalMetric)
 				fmt.Fprintf(conn, finalMetric)
 			}
 		}
