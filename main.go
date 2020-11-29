@@ -5,14 +5,15 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/quipo/statsd"
 )
+
+var conn net.Conn
 
 // Config contains the config from the command line parameters
 type Config struct {
@@ -26,6 +27,11 @@ func main() {
 	if err != nil {
 		fmt.Printf("The config was not complete: %v.\nUsage: ./goScrapeAnsibleMetrics --api-token={} --format={} --server-url={}.\n", err)
 		os.Exit(0)
+	}
+
+	conn, err = net.Dial("udp", "127.0.0.1:18125")
+	if err != nil {
+		panic(fmt.Sprintf("Couldn't connect to local statsd listener on port 18125: %v\n", err))
 	}
 
 	rawMetrics, err := getMetrics(config)
@@ -106,39 +112,47 @@ func getMetrics(config Config) (string, error) {
 
 func convertMetricsToStatsD(rawMetrics string) {
 	metrics := strings.Split(rawMetrics, "\n")
-	statsClient := makeStatsDClient()
 
 	for _, metric := range metrics {
 		if len(metric) > 1 {
 			if metric[0] != '#' {
-				noQuotes := strings.ReplaceAll(metric, "\"", "")
-				cleanMetric := strings.ReplaceAll(noQuotes, "{", ",")
-				newMetric := strings.ReplaceAll(cleanMetric, "}", "")
+				// awx_instance_consumed_capacity{hostname="localhost",instance_uuid="98f9ca33-0ec9-4715-bf57-63e91f32a01a"} 0.0
+				// awx_instance_consumed_capacity:0|g|#hostname:localhost,...
 
-				metricValue := strings.Split(newMetric, " ")
-				value, err := strconv.ParseFloat(metricValue[1], 32)
+				metricValueSplit := strings.Split(metric, " ")
+				metricString := metricValueSplit[0]
+
+				metricStringParts := strings.Split(metricString, "{")
+
+				metricName := metricStringParts[0]
+				metricValue, err := strconv.ParseFloat(metricValueSplit[1], 32)
 				if err != nil {
 					fmt.Printf("Couldn't convert metric to float: %v\n", metricValue)
 				}
 
-				statsClient.Gauge(metricValue[0], int64(value))
-				fmt.Println(fmt.Sprintf("Printed metric: %v - %v", metricValue[0], int64(value)))
+				finalMetric := ""
+				if len(metricStringParts) > 1 {
+					metricDimensions := metricStringParts[1]
+					metricDimensionsClean := metricDimensions[0 : len(metricDimensions)-1]
+					metricDimensionsParts := strings.Split(metricDimensionsClean, ",")
+
+					dimensionString := "#"
+					for _, name := range metricDimensionsParts {
+						parts := strings.Split(name, "=")
+						dimName := parts[0]
+						dimVal := parts[1][1 : len(parts[1])-1]
+						dimensionString += fmt.Sprintf("%v:%v,", dimName, dimVal)
+					}
+					dimString := dimensionString[0 : len(dimensionString)-1]
+
+					finalMetric = fmt.Sprintf("%v:%v|g|%v", metricName, int(metricValue), dimString)
+					fmt.Println("Final metric is: ", finalMetric)
+				} else {
+					finalMetric = fmt.Sprintf("%v:%v|g", metricName, int(metricValue))
+					fmt.Println("Final metric is: ", finalMetric)
+				}
+				fmt.Fprintf(conn, finalMetric)
 			}
 		}
 	}
-}
-
-func makeStatsDClient() statsd.StatsdBuffer {
-	prefix := "statsd."
-	statsdclient := statsd.NewStatsdClient("localhost:18125", prefix)
-	err := statsdclient.CreateSocket()
-	if nil != err {
-		panic(err)
-	}
-
-	interval := time.Second * 2 // aggregate stats and flush every 2 seconds
-	stats := statsd.NewStatsdBuffer(interval, statsdclient)
-	defer stats.Close()
-
-	return *stats
 }
